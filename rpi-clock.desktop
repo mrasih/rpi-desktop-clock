@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=RPi Large Display Clock
+Comment=Fullscreen High Contrast Accessibility Clock
+Exec=/usr/bin/python3 /home/pi/rpi-desktop-clock/clock.py
+Terminal=false
+StartupNotify=false
+Categories=Utility;
