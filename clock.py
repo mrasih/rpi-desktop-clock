@@ -10,6 +10,7 @@ Specifically designed for accessibility / visually impaired users:
 - Prevent screen from turning off / sleeping (Stay Awake toggle)
 - Persistent JSON configuration
 - Accessible Settings UI (Press 'S', Right-Click, or click the gear icon)
+- Quick Exit button near Settings (or Press 'Q' / Esc)
 """
 
 import os
@@ -108,9 +109,9 @@ class LargeDisplayClock:
         self.root.attributes("-fullscreen", self.is_fullscreen)
         
         # 4. Bind keyboard and mouse events
-        self.root.bind("<Escape>", lambda e: self.root.destroy())
-        self.root.bind("q", lambda e: self.root.destroy())
-        self.root.bind("Q", lambda e: self.root.destroy())
+        self.root.bind("<Escape>", self.exit_app)
+        self.root.bind("q", self.exit_app)
+        self.root.bind("Q", self.exit_app)
         self.root.bind("s", lambda e: self.open_settings())
         self.root.bind("S", lambda e: self.open_settings())
         self.root.bind("<F11>", self.toggle_fullscreen)
@@ -132,9 +133,13 @@ class LargeDisplayClock:
         self.time_label.pack(expand=True, fill="both")
         self.time_label.bind("<Button-3>", lambda e: self.open_settings())
         
-        # Discreet Settings button in bottom-right corner
+        # Discreet controls in bottom-right corner (Settings & Exit)
+        self.controls_frame = tk.Frame(self.root, bg=self.config["bg_color"])
+        self.controls_frame.place(relx=0.99, rely=0.98, anchor="se")
+        self.controls_frame.bind("<Motion>", self.on_mouse_move)
+
         self.gear_btn = tk.Button(
-            self.root,
+            self.controls_frame,
             text="⚙ Settings (S)",
             fg="#777777",
             bg=self.config["bg_color"],
@@ -146,9 +151,28 @@ class LargeDisplayClock:
             cursor="hand2",
             command=self.open_settings
         )
-        self.gear_btn.place(relx=0.99, rely=0.98, anchor="se")
+        self.gear_btn.pack(side="left", padx=(0, 10))
         self.gear_btn.bind("<Enter>", lambda e: self.gear_btn.configure(fg="#FF4444"))
         self.gear_btn.bind("<Leave>", lambda e: self.gear_btn.configure(fg="#777777"))
+        self.gear_btn.bind("<Motion>", self.on_mouse_move)
+
+        self.exit_btn = tk.Button(
+            self.controls_frame,
+            text="✕ Exit (Q)",
+            fg="#777777",
+            bg=self.config["bg_color"],
+            activeforeground="#FFFFFF",
+            activebackground="#222222",
+            font=("DejaVu Sans", 11, "bold"),
+            relief="flat",
+            bd=0,
+            cursor="hand2",
+            command=self.exit_app
+        )
+        self.exit_btn.pack(side="left")
+        self.exit_btn.bind("<Enter>", lambda e: self.exit_btn.configure(fg="#FF4444"))
+        self.exit_btn.bind("<Leave>", lambda e: self.exit_btn.configure(fg="#777777"))
+        self.exit_btn.bind("<Motion>", self.on_mouse_move)
 
         # 6. Apply initial cursor state
         if self.is_fullscreen:
@@ -240,6 +264,11 @@ class LargeDisplayClock:
 
     def resize_font(self):
         """Dynamically compute the maximum fitting font size for current window size."""
+        try:
+            if not self.root.winfo_exists():
+                return
+        except Exception:
+            return
         width = self.root.winfo_width()
         height = self.root.winfo_height()
         
@@ -276,8 +305,11 @@ class LargeDisplayClock:
             else:
                 high = mid - 1
                 
-        self.last_font_size = best_size
-        self.time_label.configure(font=(font_family, best_size, "bold"))
+        try:
+            self.last_font_size = best_size
+            self.time_label.configure(font=(font_family, best_size, "bold"))
+        except Exception:
+            pass
 
     def get_current_time_str(self):
         """Build formatted time string considering offsets and format toggles."""
@@ -313,13 +345,23 @@ class LargeDisplayClock:
 
     def update_time(self):
         """Update clock label and schedule next refresh."""
-        self.time_label.configure(text=self.get_current_time_str())
-        self.root.after(150, self.update_time)
+        try:
+            if not self.root.winfo_exists():
+                return
+            self.time_label.configure(text=self.get_current_time_str())
+            self.root.after(150, self.update_time)
+        except Exception:
+            pass
 
     def screen_heartbeat_loop(self):
         """Periodically refresh screen sleep prevention."""
-        self.screen_manager.heartbeat()
-        self.root.after(60000, self.screen_heartbeat_loop)
+        try:
+            if not self.root.winfo_exists():
+                return
+            self.screen_manager.heartbeat()
+            self.root.after(60000, self.screen_heartbeat_loop)
+        except Exception:
+            pass
 
     def apply_settings(self, new_config):
         """Apply changes from settings dialog live."""
@@ -333,13 +375,26 @@ class LargeDisplayClock:
             fg=self.config["text_color"],
             bg=self.config["bg_color"]
         )
+        self.controls_frame.configure(bg=self.config["bg_color"])
         self.gear_btn.configure(bg=self.config["bg_color"])
+        self.exit_btn.configure(bg=self.config["bg_color"])
         
         # Apply screen sleep prevention
         self.screen_manager.apply(self.config.get("prevent_sleep", True))
         
         # Recompute font for new text layout
         self.resize_font()
+
+    def exit_app(self, event=None):
+        """Safely restore screen settings and exit."""
+        try:
+            self.screen_manager.apply(False)
+        except Exception:
+            pass
+        try:
+            self.root.destroy()
+        except Exception:
+            pass
 
     def open_settings(self):
         """Launch the accessible settings dialog."""
@@ -354,15 +409,22 @@ class LargeDisplayClock:
             pass
         self.cursor_hidden = False
         
-        self.settings_window = SettingsDialog(self.root, self.config, self.apply_settings)
+        self.settings_window = SettingsDialog(
+            self.root,
+            self.config,
+            self.apply_settings,
+            on_exit_callback=self.exit_app
+        )
 
 
 class SettingsDialog(tk.Toplevel):
     """Large, high-contrast, accessible Settings window."""
-    def __init__(self, parent, current_config, on_save_callback):
+    def __init__(self, parent, current_config, on_save_callback, on_exit_callback=None):
         super().__init__(parent)
         self.title("Clock Settings")
+        self.parent = parent
         self.on_save = on_save_callback
+        self.on_exit = on_exit_callback
         self.config = current_config.copy()
         
         # High contrast dialog styling
@@ -638,6 +700,23 @@ class SettingsDialog(tk.Toplevel):
             command=self.reset_defaults
         )
         reset_btn.pack(side="left")
+
+        if self.on_exit:
+            exit_clock_btn = tk.Button(
+                btn_box,
+                text="✕ Exit Clock",
+                font=("DejaVu Sans", 11),
+                fg="#FF6666",
+                bg="#222222",
+                activeforeground="#FFFFFF",
+                activebackground="#AA2222",
+                padx=12,
+                pady=8,
+                relief="flat",
+                cursor="hand2",
+                command=self.on_exit
+            )
+            exit_clock_btn.pack(side="left", padx=6)
 
     def create_offset_row(self, parent, label_text, var, min_v, max_v):
         row = tk.Frame(parent, bg=self.card_bg)

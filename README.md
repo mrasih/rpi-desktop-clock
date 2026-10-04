@@ -30,7 +30,7 @@ A lightweight, fullscreen, high-contrast digital clock designed for Raspberry Pi
    python3 clock.py
    ```
    - Press <kbd>S</kbd> or right-click to open **Settings**.
-   - Press <kbd>q</kbd> or <kbd>Esc</kbd> to quit.
+   - Press <kbd>q</kbd>, <kbd>Esc</kbd>, or click the **`✕ Exit (Q)`** button at the bottom-right corner to quit.
    - Press <kbd>F11</kbd> to toggle fullscreen.
 
 4. Reboot to test autostart:
@@ -45,7 +45,7 @@ A lightweight, fullscreen, high-contrast digital clock designed for Raspberry Pi
 You can open the Settings UI at any time:
 1. Press <kbd>S</kbd> or <kbd>s</kbd> on the keyboard.
 2. **Right-click** anywhere on the clock display.
-3. Move the mouse and click the **`⚙ Settings (S)`** button at the bottom-right corner.
+3. Move the mouse and click the **`⚙ Settings (S)`** button at the bottom-right corner (located right next to the **`✕ Exit (Q)`** button).
 
 ### What You Can Customize:
 1. **Display Elements:**
